@@ -50,6 +50,8 @@ def upload_files():
         return jsonify({'error': 'No files uploaded'}), 400
     
     files = request.files.getlist('files[]')
+    folder_name = request.form.get('folderName', 'renamed_images')
+    
     if not files:
         return jsonify({'error': 'No files selected'}), 400
 
@@ -73,7 +75,7 @@ def upload_files():
         with zipfile.ZipFile(memory_file, 'w') as zf:
             for file in os.listdir(batch_folder):
                 file_path = os.path.join(batch_folder, file)
-                zf.write(file_path, os.path.basename(file_path))
+                zf.write(file_path, os.path.join(folder_name, os.path.basename(file_path)))
         
         memory_file.seek(0)
         
@@ -84,7 +86,7 @@ def upload_files():
             memory_file,
             mimetype='application/zip',
             as_attachment=True,
-            download_name='renamed_images.zip'
+            download_name=f'{folder_name}.zip'
         )
         
     except Exception as e:
