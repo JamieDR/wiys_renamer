@@ -8,23 +8,53 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f5f5f5;
         }
         .upload-container {
             border: 2px dashed #ccc;
             padding: 20px;
             text-align: center;
             margin: 20px 0;
+            background-color: white;
+            border-radius: 8px;
         }
         #status {
             margin: 20px 0;
             padding: 10px;
             display: none;
+            border-radius: 4px;
         }
         .instructions {
-            background-color: #f8f9fa;
+            background-color: white;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .folder-name-input {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+            margin-left: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
@@ -33,9 +63,15 @@
     
     <div class="instructions">
         <h3>Instructions:</h3>
-        <p>1. Select all the JPG images you want to rename</p>
-        <p>2. Files will be renamed in this sequence: 1 Intro, 2 b, 3 c, ..., FEATURED</p>
-        <p>3. Files are sorted by creation date</p>
+        <p>1. Enter the name for your folder</p>
+        <p>2. Select all the JPG images you want to rename</p>
+        <p>3. Files will be renamed in this sequence: 1 Intro, 2 b, 3 c, ..., FEATURED</p>
+        <p>4. Files are sorted by creation date</p>
+    </div>
+
+    <div class="folder-name-input">
+        <label for="folderName">Folder Name:</label>
+        <input type="text" id="folderName" placeholder="Enter folder name">
     </div>
 
     <div class="upload-container">
@@ -69,11 +105,11 @@
         });
 
         function highlight(e) {
-            uploadContainer.style.backgroundColor = '#e9ecef';
+            uploadContainer.style.backgroundColor = '#f8f9fa';
         }
 
         function unhighlight(e) {
-            uploadContainer.style.backgroundColor = '';
+            uploadContainer.style.backgroundColor = 'white';
         }
 
         uploadContainer.addEventListener('drop', handleDrop, false);
@@ -87,6 +123,7 @@
 
         function handleFiles(e) {
             const files = e.target.files;
+            const folderName = document.getElementById('folderName').value || 'renamed_images';
             
             if (files.length === 0) return;
 
@@ -95,6 +132,7 @@
             status.style.backgroundColor = '#fff3cd';
 
             const formData = new FormData();
+            formData.append('folderName', folderName);
             for (let i = 0; i < files.length; i++) {
                 formData.append('files[]', files[i]);
             }
@@ -111,7 +149,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'renamed_images.zip';
+                a.download = `${folderName}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
