@@ -5,6 +5,7 @@ import shutil
 from datetime import datetime
 import zipfile
 import io
+import time
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -13,39 +14,72 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-def generate_naming_sequence(count):
-    if count < 2:
-        return ["1 Intro"]
-    sequence = ["1 Intro"] + [f"{i} {chr(96 + i)}" for i in range(2, count)]
-    sequence.append("FEATURED")
+def get_creation_time(file_path):
+    """Get file creation time (or modification time as fallback)"""
+    try:
+        # Try to get creation time first
+        return os.path.getctime(file_path)
+    except:
+        # Fallback to modification time
+        return os.path.getmtime(file_path)
+
+def generate_naming_sequence(count, folder_name):
+    """Generate a sequence of names based on the number of images and folder name"""
+    if count < 1:
+        return []
+    
+    # First image is "1 intro [folder_name]"
+    # Rest are just numbered "[number] [folder_name]"
+    sequence = [f"1 intro {folder_name}"]
+    
+    # Add remaining numbered items
+    for i in range(2, count + 1):
+        sequence.append(f"{i} {folder_name}")
+    
     return sequence
 
-def process_images(folder_path):
+def process_images(folder_path, folder_name=None):
+    """Process images in the given folder, renaming them based on creation time"""
+    # Get all image files
     files = [f for f in os.listdir(folder_path) 
-             if f.lower().endswith('.jpg') and os.path.isfile(os.path.join(folder_path, f))]
+             if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')) 
+             and os.path.isfile(os.path.join(folder_path, f))]
     
-    files_with_time = [(file, os.path.getctime(os.path.join(folder_path, file))) 
+    # Get creation time for each file
+    files_with_time = [(file, get_creation_time(os.path.join(folder_path, file))) 
                        for file in files]
+    
+    # Sort files by creation time
     files_with_time.sort(key=lambda x: x[1])
     
-    naming_sequence = generate_naming_sequence(len(files_with_time))
+    # If folder_name is not provided, use the name of the folder
+    if not folder_name:
+        folder_name = os.path.basename(folder_path)
+    
+    # Generate naming sequence
+    naming_sequence = generate_naming_sequence(len(files_with_time), folder_name)
     renamed_files = []
     
+    # Rename files
     for i, (file, _) in enumerate(files_with_time):
-        old_path = os.path.join(folder_path, file)
-        new_name = f"{naming_sequence[i]}.jpg"
-        new_path = os.path.join(folder_path, new_name)
-        os.rename(old_path, new_path)
-        renamed_files.append((file, new_name))
+        if i < len(naming_sequence):
+            old_path = os.path.join(folder_path, file)
+            _, ext = os.path.splitext(file)
+            new_name = f"{naming_sequence[i]}{ext}"
+            new_path = os.path.join(folder_path, new_name)
+            os.rename(old_path, new_path)
+            renamed_files.append((file, new_name))
     
     return renamed_files
 
 @app.route('/')
 def index():
+    """Render the main page"""
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
+    """Handle file uploads, process them, and return a zip file"""
     if 'files[]' not in request.files:
         return jsonify({'error': 'No files uploaded'}), 400
     
@@ -54,7 +88,7 @@ def upload_files():
     
     if not files:
         return jsonify({'error': 'No files selected'}), 400
-
+        
     # Create temporary folder for this batch
     batch_folder = os.path.join(app.config['UPLOAD_FOLDER'], 
                                datetime.now().strftime('%Y%m%d_%H%M%S'))
@@ -68,7 +102,7 @@ def upload_files():
                 file.save(os.path.join(batch_folder, filename))
         
         # Process the files
-        renamed_files = process_images(batch_folder)
+        renamed_files = process_images(batch_folder, folder_name)
         
         # Create zip file
         memory_file = io.BytesIO()
